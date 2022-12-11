@@ -57,7 +57,7 @@ class Users(db.Model):
 
 
 class Patients(db.Model):
-    __tablename__ = 'production_patients'
+    __tablename__ = 'patients'
 
     id = db.Column(db.Integer, primary_key=True)
     mrn = db.Column(db.String(255))
@@ -95,52 +95,14 @@ class Patients(db.Model):
             'contact_home': self.contact_home
         }
 
-class Conditions_patient(db.Model):
-    __tablename__ = 'production_patient_conditions'
 
-    id = db.Column(db.Integer, primary_key=True)
-    mrn = db.Column(db.String(255), db.ForeignKey('production_patients.mrn'))
-    icd10_code = db.Column(db.String(255), db.ForeignKey('production_conditions.icd10_code'))
-
-    # this first function __init__ is to establish the class for python GUI
-    def __init__(self, mrn, icd10_code):
-        self.mrn = mrn
-        self.icd10_code = icd10_code
-
-    # this second function is for the API endpoints to return JSON
-    def to_json(self):
-        return {
-            'id': self.id,
-            'mrn': self.mrn,
-            'icd10_code': self.icd10_code
-        }
-
-class Conditions(db.Model):
-    __tablename__ = 'production_conditions'
-
-    id = db.Column(db.Integer, primary_key=True)
-    icd10_code = db.Column(db.String(255))
-    icd10_description = db.Column(db.String(255))
-
-    # this first function __init__ is to establish the class for python GUI
-    def __init__(self, icd10_code, icd10_description):
-        self.icd10_code = icd10_code
-        self.icd10_description = icd10_description
-
-    # this second function is for the API endpoints to return JSON
-    def to_json(self):
-        return {
-            'id': self.id,
-            'icd10_code': self.icd10_code,
-            'icd10_description': self.icd10_description
-        }
 
 class Medications_patient(db.Model):
     __tablename__ = 'production_patient_medications'
 
     id = db.Column(db.Integer, primary_key=True)
-    mrn = db.Column(db.String(255), db.ForeignKey('production_patients.mrn'))
-    med_ndc = db.Column(db.String(255), db.ForeignKey('production_medications.med_ndc'))
+    mrn = db.Column(db.String(255), db.ForeignKey('patients.mrn'))
+    med_ndc = db.Column(db.String(255), db.ForeignKey('prod_medications.med_ndc'))
 
     # this first function __init__ is to establish the class for python GUI
     def __init__(self, mrn, med_ndc):
@@ -156,7 +118,7 @@ class Medications_patient(db.Model):
         }
     
 class Medications(db.Model):
-    __tablename__ = 'production_medications'
+    __tablename__ = 'prod_medications'
 
     id = db.Column(db.Integer, primary_key=True)
     med_ndc = db.Column(db.String(255))
@@ -202,6 +164,8 @@ def login():
             db.session.commit()
             if session['account_type'] == 'admin':
                 return redirect(url_for('get_gui_patients'))
+            if session['account_type'] == 'provider':
+                return redirect(url_for('get_gui_patients'))
             elif session['account_type'] == 'patient':
                 ## go to /details/{{row.mrn}} 
                 return redirect(url_for('get_patient_details', mrn=session['mrn']))
@@ -217,6 +181,9 @@ def register():
         if request.form['account_type'] == 'admin':
             # redirect to admin registration page
             return redirect(url_for('register_admin'))
+        if request.form['account_type'] == 'provider':
+            # redirect to provider registration page
+            return redirect(url_for('register_provider'))
         elif request.form['account_type'] == 'patient':
             # redirect to patient registration page
             return redirect(url_for('register_patient'))
@@ -260,10 +227,9 @@ def register_admin():
 @app.route('/register/patient', methods=['GET', 'POST'])
 def register_patient():
 
-    db_conditions = Conditions.query.all()
     db_medications = Medications.query.all()
 
-    print('count of conditions loaded: ', len(db_conditions))
+
     print('count of medications loaded: ', len(db_medications))
 
     # Output message if something goes wrong...
@@ -288,9 +254,8 @@ def register_patient():
         contact_mobile = request.form['contact_mobile']
         contact_home = request.form['contact_home']
 
-        ## Fields to capture patient conditions
-        pt_conditions = request.form.getlist('conditions')
-        print('pt_conditions: ', pt_conditions)
+
+   
 
         ## check if email already exists in account table or contact_mobile already exists in patient table
         account = Users.query.filter_by(email=email).first()
@@ -309,20 +274,43 @@ def register_patient():
             db.session.add(new_patient)
             db.session.commit()
 
-            ## then loop through each condition and add to patient_conditions table after patient has been added to pt table
-            for condition in pt_conditions:
-                new_patient_condition = Conditions_patient(mrn, condition)
-                db.session.add(new_patient_condition)
-                db.session.commit()
+       
 
             msg = 'You have successfully registered a PATIENT account !'
     elif request.method == 'POST':
         # Form is empty... (no POST data)
         msg = 'Please fill out the form!'
     # Show registration form with message (if any)
-    return render_template('register_patient.html', msg=msg, conditions=db_conditions, medications=db_medications)
+    return render_template('register_patient.html', msg=msg, medications=db_medications)
 
-
+@app.route('/register/provider', methods=['GET', 'POST'])
+def register_provider():
+    # Output message if something goes wrong...
+    msg = ''
+    # Check if "username", "password" and "email" POST requests exist (user submitted form)
+    if request.method == 'POST' and 'username' in request.form and 'password' in request.form and 'email' in request.form:
+        # Create variables for easy access
+        username = request.form['username']
+        password = request.form['password']
+        email = request.form['email']
+        account_type = 'provider'
+        mrn = None
+        ## check if email already exists
+        account = Users.query.filter_by(email=email).first()
+        if account:
+            msg = 'Account already exists !'   
+        else:
+            datecreated = datetime.datetime.now()
+            lastlogin = datetime.datetime.now()
+            new_user = Users(username, password, email, account_type, mrn, datecreated, lastlogin)
+            db.session.add(new_user)
+            db.session.commit()
+            msg = "You have successfully registered a Care Provider account!"
+    elif request.method == 'POST':
+        # Form is empty... (no POST data)
+        msg = 'Please fill out the form!'
+    # Show registration form with message (if any)
+    return render_template('register_provider.html', msg=msg)
 
 @app.route('/account')
 def account():
@@ -379,6 +367,9 @@ def get_gui_patients():
     if 'loggedin' in session and session['account_type'] == 'admin':
         returned_Patients = Patients.query.all() # documentation for .query exists: https://docs.sqlalchemy.org/en/14/orm/query.html
         return render_template("patient_all.html", patients = returned_Patients)
+    elif 'loggedin' in session and session['account_type'] =='provider':
+        returned_Patients= Patients.query.all()
+        return render_template("patient_all.html", patients = returned_Patients)
     else:
         return redirect(url_for('get_patient_details', mrn=session['mrn']))
 
@@ -414,6 +405,18 @@ def update(): # note this function needs to match name in html form action
         flash("Patient Updated Successfully")
         return redirect(url_for('get_gui_patients'))
 
+@app.route('/update_account', methods=['GET', 'POST'])
+def user_update():  # note this function needs to match name in html form action
+    if request.method == 'POST':
+        # get mrn from form
+        form_id = request.form.get('id')
+        user = Users.query.filter_by(id=session['id']).first()
+        user.username = request.form.get('username')
+        user.email = request.form.get('email')
+        db.session.commit()
+        flash("Account Updated Successfully")
+        return redirect(url_for('account'))
+
 #This route is for deleting our patients
 @app.route('/delete/<string:mrn>', methods = ['GET', 'POST'])
 def delete(mrn): # note this function needs to match name in html form action
@@ -429,50 +432,16 @@ def delete(mrn): # note this function needs to match name in html form action
 @app.route('/details/<string:mrn>', methods = ['GET'])
 def get_patient_details(mrn):
     patient_details = Patients.query.filter_by(mrn=mrn).first()
-    patient_conditions = Conditions_patient.query.filter_by(mrn=mrn).all()
     patient_medications = Medications_patient.query.filter_by(mrn=mrn).all()
-    db_conditions = Conditions.query.all()
     db_medications = Medications.query.all()
-    print('Number of conditions total loaded: ', len(db_conditions))
     print('Number of medications total loaded: ', len(db_medications))
-    return render_template("patient_details.html", patient_details = patient_details, 
-        patient_conditions = patient_conditions, patient_medications = patient_medications,
-        db_conditions = db_conditions, db_medications = db_medications)
+    return render_template("patient_details.html", patient_details = patient_details, patient_medications = patient_medications, db_medications = db_medications)
 
 
-# this endpoint is for updating ONE patient condition
-@app.route('/update_conditions', methods = ['GET', 'POST'])
-def update_conditions(): # note this function needs to match name in html form action
-    if request.method == 'POST':
-        ## get mrn from form
-        form_id = request.form.get('id')
-        print('form_id', form_id)
-        form_icd10_code = request.form.get('icd10_code')
-        print('form_icd10_code', form_icd10_code)
-        patient_condition = Conditions_patient.query.filter_by(id=form_id).first()
-        print('patient_condition', patient_condition)
-        patient_condition.icd10_code = request.form.get('icd10_code')
-        db.session.commit()
-        flash("Patient Condition Updated Successfully")
-        ## then return to patient details page
-        return redirect(url_for('get_patient_details', mrn=patient_condition.mrn))
 
 
-# this endpoint is for adding a new condition to a patient
-@app.route('/add_condition', methods = ['GET', 'POST'])
-def add_condition(): # note this function needs to match name in html form action
-    if request.method == 'POST':
-        ## get mrn from form
-        form_mrn = request.form.get('mrn')
-        print('form_mrn', form_mrn)
-        form_icd10_code = request.form.get('icd10_code')
-        print('form_icd10_code', form_icd10_code)
-        new_condition = Conditions_patient(form_mrn, form_icd10_code)
-        db.session.add(new_condition)
-        db.session.commit()
-        flash("Patient Condition Added Successfully")
-        ## then return to patient details page
-        return redirect(url_for('get_patient_details', mrn=form_mrn))
+
+
 
 
 @app.route('/add_medication', methods = ['GET', 'POST'])
@@ -490,21 +459,7 @@ def add_medication(): # note this function needs to match name in html form acti
         ## then return to patient details page
         return redirect(url_for('get_patient_details', mrn=form_mrn))
 
-# this endpoint is for deleting a condition from a patient
-@app.route('/delete_condition', methods = ['GET', 'POST'])
-def delete_condition(): # note this function needs to match name in html form action
-    if request.method == 'POST':
-        ## get mrn from form
-        form_mrn = request.form.get('mrn')
-        form_icd10_code = request.form.get('icd10_code')
-        print('form_id', form_mrn)
-        print('form_icd10_code', form_icd10_code)
-        patient_condition = Conditions_patient.query.filter_by(mrn=form_mrn, icd10_code=form_icd10_code).all()
-        print('Found conditions: ', patient_condition)
-        for condition in patient_condition:
-            db.session.delete(condition)
-        db.session.commit()
-        flash("Patient Condition Deleted Successfully")
+
         ## then return to patient details page
         return redirect(url_for('get_patient_details', mrn=form_mrn))
 
@@ -589,3 +544,8 @@ def delete_patient(mrn):
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=80)
+
+
+
+
+tableNames_azure = db.session.table_names()

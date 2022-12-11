@@ -70,21 +70,43 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='signin.css') }}"> 
 
   </head>
-  <body style="background-color: lightcyan;"></body>
   <body class="text-center">
     
 <main class="form-signin w-100 m-auto">
 
-  <form action="{{ url_for('login') }}" method="post">
-    <h1 class="h3 mb-3 fw-normal">Login to your account here</h1>
+  <h1> Provider Account </h1>
+  <form action="{{ url_for('register_provider') }}" method="post">
+    <h1 class="h3 mb-3 fw-normal"> Enter the following information</h1>
+
 
     <div class="form-floating" style="padding: .2em">
-      <input type="text" class="form-control" id="username" name="username">
-      <label for="floatingInput">Username</label>
+      <input type="email" class="form-control" id="email" name="email" required>
+      <label for="floatingInput">Email</label>
     </div>
 
     <div class="form-floating" style="padding: .2em">
-      <input type="password" class="form-control" id="password" name="password">
+      <input type="text" class="form-control" id = "first_name" name="first_name" required>
+      <label for="floatingInput">First Name</label>
+    </div>
+
+    <div class="form-floating" style="padding: .2em">
+      <input type="text" class="form-control" id = "last_name" name="last_name" required>
+      <label for="floatingInput">Last Name</label>
+    </div>
+
+    <div class="form-floating" style="padding: .2em">
+      <input type="text" class="form-control" id="contact_mobile" name="contact_mobile" required>
+      <label for="floatingInput">Phone Number</label>
+    </div>
+
+
+    <div class="form-floating" style="padding: .2em">
+      <input type="text" class="form-control" id="username" name="username" required>
+      <label for="floatingInput"> Username</label>
+    </div>
+
+    <div class="form-floating" style="padding: .2em">
+      <input type="password" class="form-control" id="password" name="password" required>
       <label for="floatingPassword">Password</label>
     </div>
 
@@ -93,13 +115,15 @@
     <br />
     
     <div class="form-group">
-      <button class="btn btn-primary" type="submit" value="Login">Login</button>
-      <a href="{{ url_for('register') }}" class="btn btn-primary">Register</a>
+      <button class="btn btn-primary" type="submit" value="Register"> Create Provider User Account</button>
+      <!-- <a href="{{ url_for('login') }}" class="btn btn-primary">Login</a> -->
 
     </div>
 
 
   </form>
+
+
 
 
 </main>
